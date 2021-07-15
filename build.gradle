@@ -1,0 +1,73 @@
+buildscript {
+    ext {
+        springCoreVersion = '5.3.8'
+        springDataVersion = '3.2.2'
+        springDataJpaVersion = '2.5.2'
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        
+    }
+}
+
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.4.32' 
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.4.32'
+    id 'net.mamoe.mirai-console' version "${MIRAI_VERSION}"
+}
+
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'java-library'
+
+
+
+group = 'com.mirai.hundun'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+repositories {
+    mavenCentral()
+    jcenter()
+    maven { url 'https://jitpack.io' }
+}
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+test {
+    useJUnitPlatform()
+}
+
+
+
+
+
+
+dependencies {
+
+    implementation("org.springframework:spring-context:${springCoreVersion}")
+    
+    implementation group: 'org.mongodb', name: 'mongodb-driver-sync', version: '4.2.3'
+    implementation("org.springframework.data:spring-data-mongodb:${springDataVersion}")
+    implementation("org.springframework.data:spring-data-jpa:${springDataJpaVersion}")
+}
+
+
+
+
+
+
+
+
+
+
+
+
