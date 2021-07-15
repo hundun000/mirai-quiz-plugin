@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 
 import javax.annotation.PostConstruct;
 
+import org.jetbrains.annotations.NotNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -31,17 +32,25 @@ import hundun.quizgame.core.dto.team.TeamRuntimeInfoDTO;
 import hundun.quizgame.core.exception.QuizgameException;
 import hundun.quizgame.core.service.GameService;
 import hundun.quizgame.core.service.QuestionLoaderService;
+import hundun.quizgame.core.service.TeamService;
 import hundun.quizgame.mirai.plugin.export.DemoPlugin;
 import lombok.Data;
+import net.mamoe.mirai.console.command.CommandManager;
 import net.mamoe.mirai.console.command.CommandOwner;
 import net.mamoe.mirai.console.command.CommandSender;
+import net.mamoe.mirai.console.command.CommandSenderOnMessage;
 import net.mamoe.mirai.console.command.CompositeCommand;
 import net.mamoe.mirai.console.command.MemberCommandSender;
+import net.mamoe.mirai.console.command.MemberCommandSenderOnMessage;
 import net.mamoe.mirai.console.command.SimpleCommand;
 import net.mamoe.mirai.console.command.descriptor.CommandArgumentContext;
 import net.mamoe.mirai.console.permission.Permission;
 import net.mamoe.mirai.console.plugin.jvm.JavaPlugin;
 import net.mamoe.mirai.contact.Member;
+import net.mamoe.mirai.event.EventHandler;
+import net.mamoe.mirai.event.ListenerHost;
+import net.mamoe.mirai.event.ListeningStatus;
+import net.mamoe.mirai.event.events.GroupMessageEvent;
 import net.mamoe.mirai.message.data.At;
 import net.mamoe.mirai.message.data.Image;
 import net.mamoe.mirai.message.data.MessageChain;
@@ -53,51 +62,51 @@ import net.mamoe.mirai.utils.ExternalResource;
  * @author hundun
  * Created on 2021/07/15
  */
-@Component
 public class QuizCommand extends CompositeCommand {
 
     private final GameService quizService;
+    private final TeamService teamService;
     private final DemoPlugin plugin;
     private final QuestionLoaderService questionLoaderService;
     
     Map<String, SessionData> sessionDataMap = new HashMap<>();
     
-    @Autowired
     public QuizCommand(
             DemoPlugin parent, 
             GameService quizGameService,
+            TeamService teamService,
             QuestionLoaderService questionLoaderService
             ) {
         super(parent, "quiz", new String[]{"一站到底"}, "我是QuizCommand", parent.getParentPermission(), CommandArgumentContext.EMPTY);
         this.quizService = quizGameService;
         this.questionLoaderService = questionLoaderService;
+        this.teamService = teamService;
         this.plugin = parent;
     }
     
-    @PostConstruct
     public void postConstruct() {
         File DATA_FOLDER = plugin.resolveDataFile("quiz/question_packages/");
         File RESOURCE_ICON_FOLDER = plugin.resolveDataFile("quiz/pictures/");
         questionLoaderService.lateInitFolder(DATA_FOLDER, RESOURCE_ICON_FOLDER);
         
 //        if (appPublicSettings.getQuizConfig() != null) {
-//            List<String> builtInTeamNames = appPublicSettings.getQuizConfig().getBuiltInTeamNames();
-//            for (String builtInTeamName : builtInTeamNames) {
-//                if (!teamService.existTeam(builtInTeamName)) {
-//                    try {
-//                        teamService.quickRegisterTeam(builtInTeamName, Arrays.asList(), Arrays.asList(), null);
-//                    } catch (QuizgameException e) {
-//                        console.getLogger().error(e);
-//                    }
-//                }
-//            }
+            List<String> builtInTeamNames = Arrays.asList("红方", "白方");
+            for (String builtInTeamName : builtInTeamNames) {
+                if (!teamService.existTeam(builtInTeamName)) {
+                    try {
+                        teamService.quickRegisterTeam(builtInTeamName, Arrays.asList(), Arrays.asList(), null);
+                    } catch (QuizgameException e) {
+                        plugin.getLogger().error(e);
+                    }
+                }
+            }
 //        }
 
     }
     
     @SubCommand("开始比赛")
     public boolean start(CommandSender sender, String matchMode, String questionPackageName, String teamName) {
-        SessionData sessionData = getSessionData(sender);
+        SessionData sessionData = getOrCreateSessionData(sender);
         
         if (sessionData.matchSituationDTO != null) {
             sender.sendMessage("目前已在比赛中");
@@ -193,7 +202,7 @@ public class QuizCommand extends CompositeCommand {
         return stringBuilder.toString();
     }
     
-    private SessionData getSessionData(CommandSender sender) {
+    private SessionData getOrCreateSessionData(CommandSender sender) {
         String sessionId = "default";
         if (sender instanceof MemberCommandSender) {
             sessionId = String.valueOf(((MemberCommandSender)sender).getGroup().getId());
@@ -206,11 +215,26 @@ public class QuizCommand extends CompositeCommand {
         }
         return sessionData;
     }
+    
+    @SubCommand("结束比赛")
+    public boolean exit(CommandSender sender) {
+        
+        SessionData sessionData = getOrCreateSessionData(sender);
+        if (sessionData.matchSituationDTO == null) {
+            sender.sendMessage("没有进行中的比赛");
+            return true;
+        } else {
+            sessionData.matchSituationDTO = null;
+            sender.sendMessage("结束比赛成功");
+            return true;
+        }
+        
+    }
 
     @SubCommand("出题")
     public boolean nextQuestion(CommandSender sender) {
 
-        SessionData sessionData = getSessionData(sender);
+        SessionData sessionData = getOrCreateSessionData(sender);
         
         if (sessionData.matchSituationDTO == null) {
             sender.sendMessage("没有进行中的比赛");
@@ -274,10 +298,11 @@ public class QuizCommand extends CompositeCommand {
 
     }
     
+    
     @SubCommand("回答")
     public boolean answer(CommandSender sender, String answer) {
         
-        SessionData sessionData = getSessionData(sender);
+        SessionData sessionData = getOrCreateSessionData(sender);
         
         if (sessionData.matchSituationDTO != null && sessionData.matchSituationDTO.getState() == MatchState.WAIT_ANSWER) {
             if (answer.equals("A") || answer.equals("B") || answer.equals("C") || answer.equals("D")) {
@@ -401,4 +426,8 @@ public class QuizCommand extends CompositeCommand {
         }
         return stringBuilder.toString();
     }
+
+    
+    
+    
 }

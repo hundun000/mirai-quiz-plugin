@@ -1,0 +1,40 @@
+flowchart TD
+    classDef stateColor fill:#f88,stroke:#333,stroke-width:3px
+    classDef eventColor fill:#4AF,stroke:#333,stroke-width:3px
+
+    StartMatchEvent(" "):::eventColor
+    SwitchQuestionEvent(" "):::eventColor
+    SkillResultEvent(" "):::eventColor
+    AnswerResultEvent(" "):::eventColor
+    SwitchTeamEvent(" "):::eventColor
+    FinishEvent(" "):::eventColor
+
+    WAIT_START(["比赛未开始"]):::stateColor
+    WAIT_GENERATE_QUESTION(["待取题"]):::stateColor
+    WAIT_ANSWER(["待答题"]):::stateColor
+    FINISHED(["比赛已结束"]):::stateColor
+
+    fork(["临时态"])
+    join(["临时态"])
+
+    WAIT_START --> |开始命令|StartMatchEvent
+    StartMatchEvent --> WAIT_GENERATE_QUESTION
+
+    WAIT_GENERATE_QUESTION --> |取题命令|SwitchQuestionEvent
+    SwitchQuestionEvent --> WAIT_ANSWER
+
+    WAIT_ANSWER --> |使用技能命令|SkillResultEvent
+    SkillResultEvent --> WAIT_ANSWER
+    WAIT_ANSWER --> |正常答题/超时/跳过|AnswerResultEvent
+    AnswerResultEvent --> fork
+
+    fork --> |满足比赛结束条件|FinishEvent
+    fork --> |满足换队条件|SwitchTeamEvent
+    fork --> |其他|join
+
+    SwitchTeamEvent --> join
+    join --> WAIT_GENERATE_QUESTION
+
+    FinishEvent --> FINISHED
+
+    FINISHED --> WAIT_START
