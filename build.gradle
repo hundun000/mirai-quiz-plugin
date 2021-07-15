@@ -1,8 +1,7 @@
 buildscript {
     ext {
         springCoreVersion = '5.3.8'
-        springDataVersion = '3.2.2'
-        springDataJpaVersion = '2.5.2'
+
     }
     repositories {
         mavenCentral()
@@ -25,7 +24,7 @@ apply plugin: 'java-library'
 
 
 
-group = 'com.mirai.hundun'
+group = 'hundun'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '11'
 
@@ -55,9 +54,10 @@ dependencies {
 
     implementation("org.springframework:spring-context:${springCoreVersion}")
     
-    implementation group: 'org.mongodb', name: 'mongodb-driver-sync', version: '4.2.3'
-    implementation("org.springframework.data:spring-data-mongodb:${springDataVersion}")
-    implementation("org.springframework.data:spring-data-jpa:${springDataJpaVersion}")
+    implementation 'com.github.hundun000.quizgame:quizgame-core:76099d5bee'
+    
+    compileOnly 'org.projectlombok:lombok:1.18.4'
+    annotationProcessor 'org.projectlombok:lombok:1.18.4'
 }
 
 

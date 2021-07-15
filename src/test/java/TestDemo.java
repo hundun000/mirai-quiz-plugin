@@ -1,7 +1,6 @@
 
 
-import com.hundun.mirai.plugin.export.DemoPlugin;
-
+import hundun.quizgame.mirai.plugin.export.DemoPlugin;
 import net.mamoe.mirai.console.plugin.PluginManager;
 import net.mamoe.mirai.console.terminal.MiraiConsoleImplementationTerminal;
 import net.mamoe.mirai.console.terminal.MiraiConsoleTerminalLoader;
