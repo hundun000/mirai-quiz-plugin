@@ -3,54 +3,30 @@ package hundun.quizgame.mirai.plugin.command;
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-
-import javax.annotation.PostConstruct;
-
-import org.jetbrains.annotations.NotNull;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
-
-import hundun.quizgame.core.dto.buff.BuffRuntimeDTO;
-import hundun.quizgame.core.dto.event.AnswerResultEvent;
-import hundun.quizgame.core.dto.event.FinishEvent;
-import hundun.quizgame.core.dto.event.StartMatchEvent;
-import hundun.quizgame.core.dto.event.SwitchQuestionEvent;
-import hundun.quizgame.core.dto.event.SwitchTeamEvent;
-import hundun.quizgame.core.dto.match.AnswerType;
-import hundun.quizgame.core.dto.match.MatchConfigDTO;
-import hundun.quizgame.core.dto.match.MatchSituationDTO;
-import hundun.quizgame.core.dto.match.MatchState;
-import hundun.quizgame.core.dto.match.MatchStrategyType;
-import hundun.quizgame.core.dto.question.QuestionDTO;
-import hundun.quizgame.core.dto.question.ResourceType;
-import hundun.quizgame.core.dto.role.RoleConstInfoDTO;
-import hundun.quizgame.core.dto.team.TeamConstInfoDTO;
-import hundun.quizgame.core.dto.team.TeamRuntimeInfoDTO;
 import hundun.quizgame.core.exception.QuizgameException;
+import hundun.quizgame.core.prototype.event.AnswerResultEvent;
+import hundun.quizgame.core.prototype.event.StartMatchEvent;
+import hundun.quizgame.core.prototype.event.SwitchTeamEvent;
+import hundun.quizgame.core.prototype.match.AnswerType;
+import hundun.quizgame.core.prototype.match.MatchConfig;
+import hundun.quizgame.core.prototype.match.MatchState;
+import hundun.quizgame.core.prototype.match.MatchStrategyType;
+import hundun.quizgame.core.prototype.question.ResourceType;
 import hundun.quizgame.core.service.GameService;
 import hundun.quizgame.core.service.QuestionLoaderService;
 import hundun.quizgame.core.service.TeamService;
+import hundun.quizgame.core.tool.TextHelper;
+import hundun.quizgame.core.view.match.MatchSituationView;
+import hundun.quizgame.core.view.question.QuestionView;
+import hundun.quizgame.core.view.team.TeamRuntimeView;
 import hundun.quizgame.mirai.plugin.export.DemoPlugin;
 import lombok.Data;
-import net.mamoe.mirai.console.command.CommandManager;
-import net.mamoe.mirai.console.command.CommandOwner;
 import net.mamoe.mirai.console.command.CommandSender;
-import net.mamoe.mirai.console.command.CommandSenderOnMessage;
 import net.mamoe.mirai.console.command.CompositeCommand;
 import net.mamoe.mirai.console.command.MemberCommandSender;
-import net.mamoe.mirai.console.command.MemberCommandSenderOnMessage;
-import net.mamoe.mirai.console.command.SimpleCommand;
 import net.mamoe.mirai.console.command.descriptor.CommandArgumentContext;
-import net.mamoe.mirai.console.permission.Permission;
-import net.mamoe.mirai.console.plugin.jvm.JavaPlugin;
 import net.mamoe.mirai.contact.Member;
-import net.mamoe.mirai.event.EventHandler;
-import net.mamoe.mirai.event.ListenerHost;
-import net.mamoe.mirai.event.ListeningStatus;
-import net.mamoe.mirai.event.events.GroupMessageEvent;
 import net.mamoe.mirai.message.data.At;
 import net.mamoe.mirai.message.data.Image;
 import net.mamoe.mirai.message.data.MessageChain;
@@ -89,18 +65,7 @@ public class QuizCommand extends CompositeCommand {
         File RESOURCE_ICON_FOLDER = plugin.resolveDataFile("quiz/pictures/");
         questionLoaderService.lateInitFolder(DATA_FOLDER, RESOURCE_ICON_FOLDER);
         
-//        if (appPublicSettings.getQuizConfig() != null) {
-            List<String> builtInTeamNames = Arrays.asList("红方", "白方");
-            for (String builtInTeamName : builtInTeamNames) {
-                if (!teamService.existTeam(builtInTeamName)) {
-                    try {
-                        teamService.quickRegisterTeam(builtInTeamName, Arrays.asList(), Arrays.asList(), null);
-                    } catch (QuizgameException e) {
-                        plugin.getLogger().error(e);
-                    }
-                }
-            }
-//        }
+
 
     }
     
@@ -113,21 +78,14 @@ public class QuizCommand extends CompositeCommand {
             return true;
         }
         
-        MatchSituationDTO newSituationDTO;
-        TeamInfoLevel teamInfoLevel = null;
+        MatchSituationView newSituationDTO;
+        MatchStrategyType matchStrategyType = TextHelper.chineseToMatchStrategyType(matchMode);
+
         try {
-            MatchStrategyType matchStrategyType = chineseToMatchStrategyType(matchMode);
-            
-            switch (matchStrategyType) {
-                case ENDLESS:
-                    teamInfoLevel = TeamInfoLevel.NAME;
-                    break;
-                default:
-                    teamInfoLevel = TeamInfoLevel.NAME_SCORE;
-            }
             
             
-            MatchConfigDTO matchConfigDTO = new MatchConfigDTO();
+            
+            MatchConfig matchConfigDTO = new MatchConfig();
             matchConfigDTO.setMatchStrategyType(matchStrategyType);
             matchConfigDTO.setTeamNames(Arrays.asList(teamName.split("&")));
             matchConfigDTO.setQuestionPackageName(questionPackageName);
@@ -138,20 +96,21 @@ public class QuizCommand extends CompositeCommand {
         } catch (Exception e) {
             newSituationDTO = null;
             plugin.getLogger().error("quizService error: ", e);
+            return false;
         }
         
         
         if (newSituationDTO != null)  {
             sessionData.matchSituationDTO = newSituationDTO;
-            sessionData.teamInfoLevel = teamInfoLevel;
+            sessionData.matchStrategyType = matchStrategyType;
             
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("开始比赛成功");
-            if (sessionData.teamInfoLevel == TeamInfoLevel.NAME_SCORE) {
+            if (sessionData.matchStrategyType == MatchStrategyType.MAIN) {
                 
                 StartMatchEvent startMatchEvent = newSituationDTO.getStartMatchEvent();
                 
-                String teamDetailText = teamsDetailText(newSituationDTO.getTeamRuntimeInfos(), startMatchEvent.getTeamConstInfos(), startMatchEvent.getRoleConstInfos());
+                String teamDetailText = TextHelper.teamsDetailText(newSituationDTO.getTeamRuntimeInfos(), startMatchEvent.getTeamPrototypes());
                 stringBuilder.append("\n\n").append(teamDetailText);
             }
             
@@ -166,41 +125,7 @@ public class QuizCommand extends CompositeCommand {
         
     }
     
-    private String teamsDetailText(List<TeamRuntimeInfoDTO> teamRuntimeDTOs, List<TeamConstInfoDTO> teamDTOs, List<RoleConstInfoDTO> roleDTOs) {
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("队伍详情:\n");
-        for (int i = 0; i < teamRuntimeDTOs.size(); i++) {
-            TeamRuntimeInfoDTO teamRuntimeInfoDTO = teamRuntimeDTOs.get(i);
-            TeamConstInfoDTO team = teamDTOs.get(i);
-            
-            
-            stringBuilder.append(team.getName()).append(" 生命:").append(teamRuntimeInfoDTO.getHealth()).append("\n");
-            if (team.getPickTags().size() > 0) {
-                stringBuilder.append("Pick:");
-                team.getPickTags().forEach(tag -> stringBuilder.append(tag).append("、"));
-                stringBuilder.setLength(stringBuilder.length() - 1);
-                stringBuilder.append("\n");
-            }
-            if (team.getBanTags().size() > 0) {
-                stringBuilder.append("Ban:");
-                team.getBanTags().forEach(tag -> stringBuilder.append(tag).append("、"));
-                stringBuilder.setLength(stringBuilder.length() - 1);
-                stringBuilder.append("\n");
-            }
-            if (false) {
-                RoleConstInfoDTO role = roleDTOs.get(i);
-                stringBuilder.append("英雄:").append(role.getName()).append(" 介绍:").append(role.getDescription()).append("\n");
-                for (int j = 0; j < role.getSkillNames().size(); j++) {
-                    stringBuilder.append("技能").append(j + 1).append(":").append(role.getSkillNames().get(j)).append(" ");
-                    stringBuilder.append("次数:").append(role.getSkillFullCounts().get(j)).append(" ");
-                    stringBuilder.append("效果:").append(role.getSkillDescriptions().get(j)).append("\n");
-                }
-                stringBuilder.append("\n");
-            }
-            
-        }
-        return stringBuilder.toString();
-    }
+    
     
     private SessionData getOrCreateSessionData(CommandSender sender) {
         String sessionId = "default";
@@ -245,7 +170,7 @@ public class QuizCommand extends CompositeCommand {
         }
 
 
-        MatchSituationDTO newSituationDTO;
+        MatchSituationView newSituationDTO;
         try {
             newSituationDTO = quizService.nextQustion(sessionData.matchSituationDTO.getId());
         } catch (QuizgameException e) {
@@ -259,7 +184,7 @@ public class QuizCommand extends CompositeCommand {
             return true;
         }
         
-        QuestionDTO questionDTO = sessionData.matchSituationDTO.getQuestion();
+        QuestionView questionDTO = sessionData.matchSituationDTO.getQuestion();
         if (questionDTO.getResource().getType() == ResourceType.IMAGE) {
             String imageResourceId = questionDTO.getResource().getData();
             sessionData.resource = plugin.resolveDataFile(questionLoaderService.RESOURCE_ICON_FOLDER + File.separator + imageResourceId);
@@ -269,10 +194,10 @@ public class QuizCommand extends CompositeCommand {
         sessionData.createTime = System.currentTimeMillis();
         StringBuilder builder = new StringBuilder();
         
-        if (sessionData.teamInfoLevel == TeamInfoLevel.NAME_SCORE) {
-            SwitchQuestionEvent switchQuestionEvent = newSituationDTO.getSwitchQuestionEvent();
-            TeamRuntimeInfoDTO currentTeam = newSituationDTO.getTeamRuntimeInfos().get(newSituationDTO.getCurrentTeamIndex());
-            builder.append("当前队伍:").append(currentTeam.getName()).append(" ");
+        if (sessionData.matchStrategyType == MatchStrategyType.MAIN) {
+            //SwitchQuestionEvent switchQuestionEvent = newSituationDTO.getSwitchQuestionEvent();
+            TeamRuntimeView currentTeam = newSituationDTO.getTeamRuntimeInfos().get(newSituationDTO.getCurrentTeamIndex());
+            builder.append("当前队伍:").append(currentTeam.getName()).append("\n");
             //builder.append("时间:").append(switchQuestionEvent.getTime()).append("秒\n\n");
         }
         
@@ -299,15 +224,15 @@ public class QuizCommand extends CompositeCommand {
     }
     
     
-    @SubCommand("回答")
+    @SubCommand({"回答", "答题"})
     public boolean answer(CommandSender sender, String answer) {
         
         SessionData sessionData = getOrCreateSessionData(sender);
         
         if (sessionData.matchSituationDTO != null && sessionData.matchSituationDTO.getState() == MatchState.WAIT_ANSWER) {
             if (answer.equals("A") || answer.equals("B") || answer.equals("C") || answer.equals("D")) {
-                String correctAnser = QuestionDTO.intToAnswerText(sessionData.matchSituationDTO.getQuestion().getAnswer());
-                MatchSituationDTO newSituationDTO;
+                String correctAnser = TextHelper.intToAnswerText(sessionData.matchSituationDTO.getQuestion().getAnswer());
+                MatchSituationView newSituationDTO;
                 try {
                     newSituationDTO = quizService.teamAnswer(sessionData.matchSituationDTO.getId(), answer);
                 } catch (QuizgameException e) {
@@ -343,8 +268,8 @@ public class QuizCommand extends CompositeCommand {
                     }
                     
                     
-                    if (sessionData.teamInfoLevel == TeamInfoLevel.NAME_SCORE) {
-                        String text = teamsNormalText(sessionData.matchSituationDTO.getTeamRuntimeInfos());
+                    if (sessionData.matchStrategyType == MatchStrategyType.MAIN) {
+                        String text = TextHelper.teamsNormalText(sessionData.matchSituationDTO.getTeamRuntimeInfos());
                         messageChainBuilder.add(new PlainText(text));
                     }
                     
@@ -356,7 +281,7 @@ public class QuizCommand extends CompositeCommand {
                     }
                     
                     if (newSituationDTO.getFinishEvent() != null) {
-                        FinishEvent matchEvent = newSituationDTO.getFinishEvent();
+                        //FinishEvent matchEvent = newSituationDTO.getFinishEvent();
                         StringBuilder stringBuilder = new StringBuilder();
                         stringBuilder.append("\n比赛结束!");
                         messageChainBuilder.add(new PlainText(stringBuilder.toString()));
@@ -374,58 +299,20 @@ public class QuizCommand extends CompositeCommand {
         return false;
     }
     
-    private enum TeamInfoLevel {
-        NAME,
-        NAME_SCORE,
-        ;
-    }
+
 
     @Data
     private class SessionData {
         
-        MatchSituationDTO matchSituationDTO;
+        MatchSituationView matchSituationDTO;
         File resource;
         long createTime;
-        TeamInfoLevel teamInfoLevel;
+        MatchStrategyType matchStrategyType;
     }
  
     
-    private MatchStrategyType chineseToMatchStrategyType(String matchMode) throws Exception {
-        switch (matchMode) {
-            case "无尽模式":
-                return MatchStrategyType.ENDLESS;
-            case "单人模式":
-                return MatchStrategyType.PRE;
-            case "双人模式":
-                return MatchStrategyType.MAIN;
-            default:
-                throw new Exception("不合法的MatchStrategyType：" + matchMode);
-        }
-    }
     
-    private String teamsNormalText(List<TeamRuntimeInfoDTO> dtos) {
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.append("队伍状态:\n");
-        for (TeamRuntimeInfoDTO dto : dtos) {
-            stringBuilder.append(dto.getName()).append(" ");
-            stringBuilder.append("得分:").append(dto.getMatchScore()).append(" ");
-            stringBuilder.append("生命:").append(dto.getHealth()).append(" ");
-            if (dto.getRuntimeBuffs().size() > 0) {
-                stringBuilder.append("Buff:\n");
-                for (BuffRuntimeDTO buffDTO : dto.getRuntimeBuffs()) {
-                    stringBuilder.append(buffDTO.getName()).append("x").append(buffDTO.getDuration()).append(" ").append(buffDTO.getDescription()).append("\n");
-                }
-            }
-            if (dto.getRoleRuntimeInfo() != null) {
-                stringBuilder.append("英雄:").append(dto.getRoleRuntimeInfo().getName()).append(" 技能:\n");
-                for (Entry<String, Integer> entry : dto.getRoleRuntimeInfo().getSkillRemainTimes().entrySet()) {
-                    stringBuilder.append(entry.getKey()).append(":").append(entry.getValue()).append(" ");
-                }
-            }
-            stringBuilder.append("\n");
-        }
-        return stringBuilder.toString();
-    }
+    
 
     
     
