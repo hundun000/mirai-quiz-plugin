@@ -1,4 +1,4 @@
-package hundun.quizgame.mirai.plugin.configuration;
+package hundun.quizgame.mirai.botlogic.configuration;
 
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
@@ -11,7 +11,7 @@ public class MiraiAdaptedApplicationContext extends AnnotationConfigApplicationC
     public MiraiAdaptedApplicationContext(boolean lateRefresh) {
         super();
         this.setClassLoader(this.getClass().getClassLoader());
-        this.scan("hundun.quizgame.mirai.plugin",
+        this.scan("hundun.quizgame.mirai.botlogic",
                 "hundun.quizgame.core"
                 );
         if (!lateRefresh) {

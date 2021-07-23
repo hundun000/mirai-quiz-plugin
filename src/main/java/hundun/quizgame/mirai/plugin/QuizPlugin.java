@@ -1,23 +1,23 @@
-package hundun.quizgame.mirai.plugin.export;
+package hundun.quizgame.mirai.plugin;
 
 import org.jetbrains.annotations.NotNull;
 
-import hundun.quizgame.mirai.plugin.botlogic.DemoBotLogic;
-import hundun.quizgame.mirai.plugin.botlogic.QuizCommandAdapter;
-import hundun.quizgame.mirai.plugin.command.QuizCommand;
+import hundun.quizgame.mirai.botlogic.QuizBotLogic;
+import hundun.quizgame.mirai.botlogic.QuizCommandAdapter;
+import hundun.quizgame.mirai.botlogic.command.QuizCommand;
 import net.mamoe.mirai.console.command.CommandManager;
 import net.mamoe.mirai.console.extension.PluginComponentStorage;
 import net.mamoe.mirai.console.plugin.jvm.JavaPlugin;
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescriptionBuilder;
 import net.mamoe.mirai.event.GlobalEventChannel;
 
-public class DemoPlugin extends JavaPlugin {
+public class QuizPlugin extends JavaPlugin {
 
-    public static final DemoPlugin INSTANCE = new DemoPlugin(); 
+    public static final QuizPlugin INSTANCE = new QuizPlugin(); 
     
-    DemoBotLogic botLogic;
+    QuizBotLogic botLogic;
     
-    public DemoPlugin() {
+    public QuizPlugin() {
         super(new JvmPluginDescriptionBuilder(
                 "hundun.quizgame",
                 "0.1.0"
@@ -32,7 +32,7 @@ public class DemoPlugin extends JavaPlugin {
     
     @Override
     public void onEnable() {
-        botLogic = new DemoBotLogic(this);
+        botLogic = new QuizBotLogic(this);
         botLogic.onEnable();
     }
     

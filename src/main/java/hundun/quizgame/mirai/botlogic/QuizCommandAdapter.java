@@ -1,4 +1,4 @@
-package hundun.quizgame.mirai.plugin.botlogic;
+package hundun.quizgame.mirai.botlogic;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,8 +11,9 @@ import org.springframework.stereotype.Component;
 import hundun.quizgame.core.service.GameService;
 import hundun.quizgame.core.service.QuestionLoaderService;
 import hundun.quizgame.core.service.TeamService;
-import hundun.quizgame.mirai.plugin.command.QuizCommand;
-import hundun.quizgame.mirai.plugin.export.DemoPlugin;
+import hundun.quizgame.mirai.botlogic.command.QuizCommand;
+import hundun.quizgame.mirai.botlogic.data.QuizConfig;
+import hundun.quizgame.mirai.plugin.QuizPlugin;
 import net.mamoe.mirai.console.command.CommandManager;
 import net.mamoe.mirai.console.command.descriptor.CommandArgumentContext;
 import net.mamoe.mirai.event.GlobalEventChannel;
@@ -26,22 +27,22 @@ import net.mamoe.mirai.event.ListenerHost;
 @Component
 public class QuizCommandAdapter {
 
+    private final QuizPlugin plugin;
+    
     public final QuizCommand quizCommand;
    
     @Autowired
     public QuizCommandAdapter(
-            DemoPlugin parent, 
+            QuizPlugin parent, 
             GameService quizGameService,
             TeamService teamService,
-            QuestionLoaderService questionLoaderService
+            QuestionLoaderService questionLoaderService,
+            QuizConfig quizConfig
             ) {
-        this.quizCommand = new QuizCommand(parent, quizGameService, teamService, questionLoaderService);
+        this.quizCommand = new QuizCommand(parent, quizGameService, teamService, questionLoaderService, quizConfig);
+        this.plugin = parent;
     }
 
-    @PostConstruct
-    public void postConstruct() {
-        this.quizCommand.postConstruct();
-    }
     
     
     

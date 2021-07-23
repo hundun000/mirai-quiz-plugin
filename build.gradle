@@ -25,7 +25,7 @@ apply plugin: 'java-library'
 
 
 group = 'hundun'
-version = '0.1.1'
+version = '0.1.2'
 sourceCompatibility = '11'
 
 repositories {
@@ -55,7 +55,8 @@ dependencies {
     implementation("org.springframework:spring-context:${springCoreVersion}")
     implementation("javax.annotation:javax.annotation-api:${javaxAnnotationVersion}")
     
-    
+    implementation group: 'com.fasterxml.jackson.core', name: 'jackson-databind', version: '2.10.5.1'
+
     implementation 'com.github.hundun000.quizgame:quizgame-core:9f84433c6e'
     
     compileOnly 'org.projectlombok:lombok:1.18.4'

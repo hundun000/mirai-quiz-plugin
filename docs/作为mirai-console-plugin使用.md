@@ -9,6 +9,9 @@
 解压后得到：
 ```
 +-- hundun.quizgame-XXX.mirai.jar
++-- config
+|   +-- hundun.quizgame
+|   |   +-- quizConfig.json
 +-- data
 |   +-- hundun.quizgame
 |   |   +-- quiz
@@ -21,7 +24,7 @@
 |   |   |   |   +-- 000001.jpg
 ```
 
-data合并至mirai-console的同名文件夹。hundun.quizgame-XXX.mirai.jar是插件本体，放入plugins。
+data、config合并至mirai-console的同名文件夹。hundun.quizgame-XXX.mirai.jar是插件本体，放入plugins。
 
 ### 配置
 

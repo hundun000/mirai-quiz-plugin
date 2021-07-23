@@ -1,9 +1,13 @@
-package hundun.quizgame.mirai.plugin.command;
+package hundun.quizgame.mirai.botlogic.command;
 
 import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import org.jetbrains.annotations.NotNull;
+
 import hundun.quizgame.core.exception.QuizgameException;
 import hundun.quizgame.core.prototype.event.AnswerResultEvent;
 import hundun.quizgame.core.prototype.event.StartMatchEvent;
@@ -20,13 +24,26 @@ import hundun.quizgame.core.tool.TextHelper;
 import hundun.quizgame.core.view.match.MatchSituationView;
 import hundun.quizgame.core.view.question.QuestionView;
 import hundun.quizgame.core.view.team.TeamRuntimeView;
-import hundun.quizgame.mirai.plugin.export.DemoPlugin;
+import hundun.quizgame.mirai.botlogic.data.QuizConfig;
+import hundun.quizgame.mirai.plugin.QuizPlugin;
 import lombok.Data;
 import net.mamoe.mirai.console.command.CommandSender;
 import net.mamoe.mirai.console.command.CompositeCommand;
 import net.mamoe.mirai.console.command.MemberCommandSender;
 import net.mamoe.mirai.console.command.descriptor.CommandArgumentContext;
+import net.mamoe.mirai.contact.Contact;
+import net.mamoe.mirai.contact.FileSupported;
+import net.mamoe.mirai.contact.Group;
 import net.mamoe.mirai.contact.Member;
+import net.mamoe.mirai.contact.User;
+import net.mamoe.mirai.event.Event;
+import net.mamoe.mirai.event.EventChannel;
+import net.mamoe.mirai.event.EventHandler;
+import net.mamoe.mirai.event.GlobalEventChannel;
+import net.mamoe.mirai.event.ListenerHost;
+import net.mamoe.mirai.event.ListeningStatus;
+import net.mamoe.mirai.event.events.AbstractMessageEvent;
+import net.mamoe.mirai.event.events.GroupMessageEvent;
 import net.mamoe.mirai.message.data.At;
 import net.mamoe.mirai.message.data.Image;
 import net.mamoe.mirai.message.data.MessageChain;
@@ -38,35 +55,49 @@ import net.mamoe.mirai.utils.ExternalResource;
  * @author hundun
  * Created on 2021/07/15
  */
-public class QuizCommand extends CompositeCommand {
+public class QuizCommand extends CompositeCommand implements ListenerHost {
 
     private final GameService quizService;
     private final TeamService teamService;
-    private final DemoPlugin plugin;
+    private final QuizPlugin plugin;
     private final QuestionLoaderService questionLoaderService;
     
     Map<String, SessionData> sessionDataMap = new HashMap<>();
     
     public QuizCommand(
-            DemoPlugin parent, 
+            QuizPlugin parent, 
             GameService quizGameService,
             TeamService teamService,
-            QuestionLoaderService questionLoaderService
+            QuestionLoaderService questionLoaderService,
+            QuizConfig quizConfig
             ) {
         super(parent, "quiz", new String[]{"一站到底"}, "我是QuizCommand", parent.getParentPermission(), CommandArgumentContext.EMPTY);
         this.quizService = quizGameService;
         this.questionLoaderService = questionLoaderService;
         this.teamService = teamService;
         this.plugin = parent;
+        
+        EventChannel<Event> eventChannel = GlobalEventChannel.INSTANCE.parentScope(plugin);
+        eventChannel.registerListenerHost(this);
+        
+        postConstruct(quizConfig);
     }
     
-    public void postConstruct() {
+    private void postConstruct(QuizConfig config) {
         File DATA_FOLDER = plugin.resolveDataFile("quiz/question_packages/");
         File RESOURCE_ICON_FOLDER = plugin.resolveDataFile("quiz/pictures/");
         questionLoaderService.lateInitFolder(DATA_FOLDER, RESOURCE_ICON_FOLDER);
         
-
-
+        List<String> builtInTeamNames = config.getBuiltInTeamNames();
+        for (String builtInTeamName : builtInTeamNames) {
+            if (!teamService.existTeam(builtInTeamName)) {
+                try {
+                    teamService.registerTeam(builtInTeamName, Arrays.asList(), Arrays.asList(), null);
+                } catch (QuizgameException e) {
+                    plugin.getLogger().error(e);
+                }
+            }
+        }
     }
     
     @SubCommand("开始比赛")
@@ -141,6 +172,17 @@ public class QuizCommand extends CompositeCommand {
         return sessionData;
     }
     
+    private SessionData getOrCreateSessionData(long groupId) {
+        String sessionId = String.valueOf(groupId);
+        SessionData sessionData = sessionDataMap.get(sessionId);
+        if (sessionData == null) {
+            sessionData = new SessionData();
+            sessionDataMap.put(sessionId, sessionData);
+        }
+        return sessionData;
+    }
+    
+    
     @SubCommand("结束比赛")
     public boolean exit(CommandSender sender) {
         
@@ -157,15 +199,21 @@ public class QuizCommand extends CompositeCommand {
     }
 
     @SubCommand("出题")
-    public boolean nextQuestion(CommandSender sender) {
-
+    public boolean nextQuestionFromCommand(CommandSender sender) {
         SessionData sessionData = getOrCreateSessionData(sender);
-        
+        return nextQuestion(sessionData, sender.getSubject(), sender.getUser());
+    }
+    public boolean nextQuestionFromEventChannel(Group group, Member member) {
+        SessionData sessionData = getOrCreateSessionData(group.getId());
+        return nextQuestion(sessionData, group, member);
+    }
+    private boolean nextQuestion(SessionData sessionData, Contact subject, User senderUser) {
+ 
         if (sessionData.matchSituationDTO == null) {
-            sender.sendMessage("没有进行中的比赛");
+            subject.sendMessage("没有进行中的比赛");
             return true;
         } else if (sessionData.matchSituationDTO.getState() == MatchState.WAIT_ANSWER) {
-            sender.sendMessage("上一个问题还没回答哦~");
+            subject.sendMessage("上一个问题还没回答哦~");
             return true;
         }
 
@@ -180,7 +228,7 @@ public class QuizCommand extends CompositeCommand {
         if (newSituationDTO != null)  {
             sessionData.matchSituationDTO = newSituationDTO;
         } else {
-            sender.sendMessage("出题失败");
+            senderUser.sendMessage("出题失败");
             return true;
         }
         
@@ -210,27 +258,44 @@ public class QuizCommand extends CompositeCommand {
         .append("发送选项字母来回答");
         
         MessageChain messageChain = new PlainText(builder.toString()).plus(new PlainText(""));
-        if (sender instanceof MemberCommandSender) {
+
+        if (subject instanceof FileSupported) {
             if (sessionData.resource != null) {
                 ExternalResource externalResource = ExternalResource.create(sessionData.resource);
-                Image image = sender.getSubject().uploadImage(externalResource);
+                Image image = subject.uploadImage(externalResource);
                 messageChain = messageChain.plus(image);
             }
         }
+     
+        subject.sendMessage(messageChain);
         
-        sender.sendMessage(messageChain);
         return true;
 
     }
     
     
+    
+    
     @SubCommand({"回答", "答题"})
-    public boolean answer(CommandSender sender, String answer) {
-        
+    public boolean answerFromCommand(CommandSender sender, String answer) {
         SessionData sessionData = getOrCreateSessionData(sender);
+        return answer(sessionData, sender.getSubject(), sender.getUser(), answer);
+    }
+    
+    private boolean answerFromEvenChannel(Group group, User sender, String answer) {
+        SessionData sessionData = getOrCreateSessionData(group.getId());
+        return answer(sessionData, group, sender, answer);
+    }
+    
+    private boolean isAnswerChar(String answer) {
+        return answer.equals("A") || answer.equals("B") || answer.equals("C") || answer.equals("D");
+    }
+    
+
+    private boolean answer(SessionData sessionData, Contact subject, User senderUser, String answer) {    
         
         if (sessionData.matchSituationDTO != null && sessionData.matchSituationDTO.getState() == MatchState.WAIT_ANSWER) {
-            if (answer.equals("A") || answer.equals("B") || answer.equals("C") || answer.equals("D")) {
+            if (isAnswerChar(answer)) {
                 String correctAnser = TextHelper.intToAnswerText(sessionData.matchSituationDTO.getQuestion().getAnswer());
                 MatchSituationView newSituationDTO;
                 try {
@@ -250,8 +315,8 @@ public class QuizCommand extends CompositeCommand {
                 if (answerResultEvent != null) {
                     
                     MessageChainBuilder messageChainBuilder = new MessageChainBuilder();
-                    if (sender.getSubject() instanceof Member) {
-                        messageChainBuilder.add(new At(sender.getSubject().getId()));
+                    if (senderUser != null) {
+                        messageChainBuilder.add(new At(senderUser.getId()));
                     }
                     
                     {
@@ -289,7 +354,7 @@ public class QuizCommand extends CompositeCommand {
                         sessionData.matchSituationDTO = null;
                     }
                     
-                    sender.sendMessage(messageChainBuilder.build());
+                    subject.sendMessage(messageChainBuilder.build());
                     return true;
                 } else {
                     return false;
@@ -311,7 +376,33 @@ public class QuizCommand extends CompositeCommand {
     }
  
     
-    
+    /**
+     * 为了让比赛更顺畅，比赛中可以不使用指令格式，而是用最简洁的文本
+     * @param event
+     * @throws Exception
+     */
+    @EventHandler
+    public void onMessage(@NotNull GroupMessageEvent event) throws Exception { 
+        SessionData sessionData = getOrCreateSessionData(event.getGroup().getId());
+        String text = event.getMessage().contentToString();
+        if (sessionData.matchSituationDTO != null) {
+            switch (text) {
+                case "A":
+                case "B":
+                case "C":
+                case "D":
+                    answerFromEvenChannel(event.getGroup(), event.getSender(), event.getMessage().contentToString());
+                    break;
+                case "出题":
+                    nextQuestionFromEventChannel(event.getGroup(), event.getSender());
+                    break;
+                default:
+                    break;
+            }
+        }
+        
+        
+    }
     
 
     

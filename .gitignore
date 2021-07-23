@@ -1,10 +1,12 @@
 release/
 release.zip
 
-config/
+config/*
+!config/hundun.quizgame
 bots/
 plugins/
-data/
+data/*
+!data/hundun.quizgame
 
 HELP.md
 .gradle
