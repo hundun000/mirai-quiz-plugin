@@ -55,6 +55,21 @@ A
 000001.jpg  // 本题图片名。放于pictures文件夹。
 ```
 
+### quizConfig.json
+
+|字段名|说明|
+|----|----|
+|builtInTeamNames|要注册的队伍名列表|
+
+这个例子中，会向答题模块注册名为“红方”和“白方”的队伍。
+
+样例 quizConfig.json
+```
+{
+     "builtInTeamNames": ["红方", "白方"]
+}
+```
+
 ### 启动和登录
 
 启动mirai-console，在mirai-console里登录。

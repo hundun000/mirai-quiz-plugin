@@ -1,14 +1,14 @@
 @echo off
 
-rem set fromFolder="./config"
+set fromFolder="./config/hundun.quizgame"
 
-rem set toFolder="/release/config"
-rem if not exist %toFolder% mkdir %toFolder%
-rem xcopy %fromFolder% %toFolder% /s /y
+set toFolder="./release/config/hundun.quizgame"
+if not exist %toFolder% mkdir %toFolder%
+xcopy %fromFolder% %toFolder% /s /y
 
-set fromFolder="./data"
+set fromFolder="./data/hundun.quizgame"
 
-set toFolder="./release/data"
+set toFolder="./release/data/hundun.quizgame"
 if not exist %toFolder% mkdir %toFolder%
 xcopy %fromFolder% %toFolder% /s /y
 
