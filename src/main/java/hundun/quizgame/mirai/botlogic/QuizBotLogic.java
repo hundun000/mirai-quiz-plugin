@@ -16,11 +16,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import hundun.quizgame.core.service.GameService;
 import hundun.quizgame.core.service.QuestionLoaderService;
 import hundun.quizgame.mirai.botlogic.command.QuizCommand;
+import hundun.quizgame.mirai.botlogic.component.QuizCommandAdapter;
 import hundun.quizgame.mirai.botlogic.configuration.MiraiAdaptedApplicationContext;
 import hundun.quizgame.mirai.botlogic.data.QuizConfig;
 import hundun.quizgame.mirai.plugin.QuizPlugin;
 import net.mamoe.mirai.console.command.CommandManager;
 import net.mamoe.mirai.console.plugin.jvm.JvmPlugin;
+import net.mamoe.mirai.event.Event;
+import net.mamoe.mirai.event.EventChannel;
 import net.mamoe.mirai.event.EventHandler;
 import net.mamoe.mirai.event.GlobalEventChannel;
 import net.mamoe.mirai.event.ListenerHost;
@@ -43,39 +46,29 @@ public class QuizBotLogic {
     public QuizBotLogic(QuizPlugin plugin) {
         this.plugin = plugin;
         
-        File settingsFile = plugin.resolveConfigFile("quizConfig.json");
-        QuizConfig quizConfig = parseQuizConfig(settingsFile);
+        
         
         context = new MiraiAdaptedApplicationContext(true);
         context.registerBean(QuizPlugin.class, () -> plugin);
-        context.registerBean(QuizConfig.class, () -> quizConfig);
         context.refresh();
         
-        plugin.getLogger().info("ApplicationContext created, has beans = " + Arrays.toString(context.getBeanDefinitionNames()));
+        plugin.getLogger().info("ApplicationContext created, has beans size = " + context.getBeanDefinitionNames().length);
         quizCommandAdapter = context.getBean(QuizCommandAdapter.class);
     }
     
     
     public void onEnable() {
         CommandManager.INSTANCE.registerCommand(quizCommandAdapter.quizCommand, false);
+       
+        EventChannel<Event> eventChannel = GlobalEventChannel.INSTANCE.parentScope(plugin);
+        eventChannel.registerListenerHost(quizCommandAdapter.quizCommand);
     }
     
     public void onDisable() {
         CommandManager.INSTANCE.unregisterCommand(quizCommandAdapter.quizCommand);
     }
 
-    ObjectMapper objectMapper = new ObjectMapper();
     
-    private QuizConfig parseQuizConfig(File settingsFile) {
-        QuizConfig quizConfig;
-        try {
-            quizConfig = objectMapper.readValue(settingsFile, QuizConfig.class);
-        } catch (IOException e) {
-            plugin.getLogger().error(e);
-            quizConfig = new QuizConfig();
-        }
-        return quizConfig;
-    }
     
     
 }

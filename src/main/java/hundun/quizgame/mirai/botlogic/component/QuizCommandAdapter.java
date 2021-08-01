@@ -1,5 +1,7 @@
-package hundun.quizgame.mirai.botlogic;
+package hundun.quizgame.mirai.botlogic.component;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -7,6 +9,8 @@ import javax.annotation.PostConstruct;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import hundun.quizgame.core.service.GameService;
 import hundun.quizgame.core.service.QuestionLoaderService;
@@ -30,18 +34,19 @@ public class QuizCommandAdapter {
     private final QuizPlugin plugin;
     
     public final QuizCommand quizCommand;
-   
+    
     @Autowired
     public QuizCommandAdapter(
             QuizPlugin parent, 
             GameService quizGameService,
             TeamService teamService,
             QuestionLoaderService questionLoaderService,
-            QuizConfig quizConfig
+            QuizConfigModel configModel
             ) {
-        this.quizCommand = new QuizCommand(parent, quizGameService, teamService, questionLoaderService, quizConfig);
+        this.quizCommand = new QuizCommand(parent, quizGameService, teamService, questionLoaderService, configModel);
         this.plugin = parent;
     }
+    
 
     
     

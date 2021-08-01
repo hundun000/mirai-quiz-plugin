@@ -1,3 +1,14 @@
 {
-    "builtInTeamNames": ["红方", "白方"]
+    "teamConfigs": [
+        {
+            "name": "红方",
+            "pickTags": ["动画", "游戏"],
+            "banTags": ["声优偶像"]
+        },
+        {
+            "name": "白方",
+            "pickTags": [],
+            "banTags": []
+        }
+    ]
 }

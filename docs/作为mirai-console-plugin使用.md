@@ -6,69 +6,14 @@
   
 ### 下载本项目制品
 
-解压后得到：
-```
-+-- hundun.quizgame-XXX.mirai.jar
-+-- config
-|   +-- hundun.quizgame
-|   |   +-- quizConfig.json
-+-- data
-|   +-- hundun.quizgame
-|   |   +-- quiz
-|   |   |   +-- question_packages
-|   |   |   |   +-- questions_small
-|   |   |   |   |   +-- 动画
-|   |   |   |   |   |   +-- 紫罗兰永恒花园.txt
-|   |   |   |   |   +-- 声优偶像.txt
-|   |   |   +-- pictures
-|   |   |   |   +-- 000001.jpg
-```
+- hundun.quizgame-XXX.mirai.jar
 
-data、config合并至mirai-console的同名文件夹。hundun.quizgame-XXX.mirai.jar是插件本体，放入plugins。
+插件本体，放入mirai-console的plugins。
 
-### 配置
+- config.zip
+- data.zip
 
-题目库：每一个`question_packages`的子文件夹都是一个题目库。样例目录`questions_small`是一个题目库。
-
-题目文件：题目库文件夹，或其子文件夹，可放任意个`题目文件`，一同构成这个题目库。分多个文件是为实验性功能做准备，目前放同一个文件即可。样例目录包含两个题目文件：`紫罗兰永恒花园.txt`、`声优偶像.txt`。
-
-题目：每个`题目文件`可包含任意个题目，按如下固定格式编写。
-
-样例 紫罗兰永恒花园.txt：
-```
-2    // 本文件内的题目数
-     // 固定空一行
-《紫罗兰永恒花园》中薇尔莉特的名字是来自？  // 题干
-紫罗兰    // A选项
-勿忘我    // B选项
-向日葵    // C选项
-玫瑰      // D选项
-A         // 正确答案
-无资源    // 本题无图片，固定写“无资源”
-          // 固定空一行
-《紫罗兰永恒花园》中，写话剧的作家是因为谁而陷入消沉
-他的女儿
-薇尔莉特
-霍金斯中佐
-公主
-A
-000001.jpg  // 本题图片名。放于pictures文件夹。
-```
-
-### quizConfig.json
-
-|字段名|说明|
-|----|----|
-|builtInTeamNames|要注册的队伍名列表|
-
-这个例子中，会向答题模块注册名为“红方”和“白方”的队伍。
-
-样例 quizConfig.json
-```
-{
-     "builtInTeamNames": ["红方", "白方"]
-}
-```
+解压后合并至mirai-console的同名文件夹。[data和config详细说明](./data和config说明.md)
 
 ### 启动和登录
 

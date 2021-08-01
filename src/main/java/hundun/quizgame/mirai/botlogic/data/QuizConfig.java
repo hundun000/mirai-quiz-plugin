@@ -12,5 +12,6 @@ import lombok.Data;
  */
 @Data
 public class QuizConfig {
-    List<String> builtInTeamNames = new ArrayList<>();
+    //List<String> builtInTeamNames = new ArrayList<>();
+    List<TeamConfig> teamConfigs;
 }

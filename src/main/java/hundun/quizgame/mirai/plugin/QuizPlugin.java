@@ -3,8 +3,8 @@ package hundun.quizgame.mirai.plugin;
 import org.jetbrains.annotations.NotNull;
 
 import hundun.quizgame.mirai.botlogic.QuizBotLogic;
-import hundun.quizgame.mirai.botlogic.QuizCommandAdapter;
 import hundun.quizgame.mirai.botlogic.command.QuizCommand;
+import hundun.quizgame.mirai.botlogic.component.QuizCommandAdapter;
 import net.mamoe.mirai.console.command.CommandManager;
 import net.mamoe.mirai.console.extension.PluginComponentStorage;
 import net.mamoe.mirai.console.plugin.jvm.JavaPlugin;

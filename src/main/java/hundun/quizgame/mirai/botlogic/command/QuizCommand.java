@@ -24,7 +24,10 @@ import hundun.quizgame.core.tool.TextHelper;
 import hundun.quizgame.core.view.match.MatchSituationView;
 import hundun.quizgame.core.view.question.QuestionView;
 import hundun.quizgame.core.view.team.TeamRuntimeView;
+import hundun.quizgame.mirai.botlogic.component.QuizConfigModel;
 import hundun.quizgame.mirai.botlogic.data.QuizConfig;
+import hundun.quizgame.mirai.botlogic.data.SessionData;
+import hundun.quizgame.mirai.botlogic.data.TeamConfig;
 import hundun.quizgame.mirai.plugin.QuizPlugin;
 import lombok.Data;
 import net.mamoe.mirai.console.command.CommandSender;
@@ -65,22 +68,21 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
     Map<String, SessionData> sessionDataMap = new HashMap<>();
     
     public QuizCommand(
-            QuizPlugin parent, 
+            QuizPlugin plugin, 
             GameService quizGameService,
             TeamService teamService,
             QuestionLoaderService questionLoaderService,
-            QuizConfig quizConfig
+            QuizConfigModel configModel
             ) {
-        super(parent, "quiz", new String[]{"一站到底"}, "我是QuizCommand", parent.getParentPermission(), CommandArgumentContext.EMPTY);
+        super(plugin, "quiz", new String[]{"一站到底"}, "我是QuizCommand", plugin.getParentPermission(), CommandArgumentContext.EMPTY);
         this.quizService = quizGameService;
         this.questionLoaderService = questionLoaderService;
         this.teamService = teamService;
-        this.plugin = parent;
+        this.plugin = plugin;
         
-        EventChannel<Event> eventChannel = GlobalEventChannel.INSTANCE.parentScope(plugin);
-        eventChannel.registerListenerHost(this);
         
-        postConstruct(quizConfig);
+        
+        postConstruct(configModel.getQuizConfig());
     }
     
     private void postConstruct(QuizConfig config) {
@@ -88,11 +90,11 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
         File RESOURCE_ICON_FOLDER = plugin.resolveDataFile("quiz/pictures/");
         questionLoaderService.lateInitFolder(DATA_FOLDER, RESOURCE_ICON_FOLDER);
         
-        List<String> builtInTeamNames = config.getBuiltInTeamNames();
-        for (String builtInTeamName : builtInTeamNames) {
-            if (!teamService.existTeam(builtInTeamName)) {
+        List<TeamConfig> teamConfigs = config.getTeamConfigs();
+        for (TeamConfig teamConfig : teamConfigs) {
+            if (!teamService.existTeam(teamConfig.getName())) {
                 try {
-                    teamService.registerTeam(builtInTeamName, Arrays.asList(), Arrays.asList(), null);
+                    teamService.registerTeam(teamConfig.getName(), teamConfig.getPickTags(), teamConfig.getBanTags(), null);
                 } catch (QuizgameException e) {
                     plugin.getLogger().error(e);
                 }
@@ -104,7 +106,7 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
     public boolean start(CommandSender sender, String matchMode, String questionPackageName, String teamName) {
         SessionData sessionData = getOrCreateSessionData(sender);
         
-        if (sessionData.matchSituationDTO != null) {
+        if (sessionData.getMatchSituationDTO() != null) {
             sender.sendMessage("目前已在比赛中");
             return true;
         }
@@ -132,12 +134,12 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
         
         
         if (newSituationDTO != null)  {
-            sessionData.matchSituationDTO = newSituationDTO;
-            sessionData.matchStrategyType = matchStrategyType;
+            sessionData.setMatchSituationDTO(newSituationDTO);
+            sessionData.setMatchStrategyType(matchStrategyType);
             
             StringBuilder stringBuilder = new StringBuilder();
             stringBuilder.append("开始比赛成功");
-            if (sessionData.matchStrategyType == MatchStrategyType.MAIN) {
+            if (sessionData.getMatchStrategyType() == MatchStrategyType.MAIN) {
                 
                 StartMatchEvent startMatchEvent = newSituationDTO.getStartMatchEvent();
                 
@@ -182,16 +184,30 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
         return sessionData;
     }
     
+    @SubCommand("debug")
+    public boolean showSessionData(CommandSender sender) {
+        
+        SessionData sessionData = getOrCreateSessionData(sender);
+        if (sessionData.getMatchSituationDTO() == null) {
+            sender.sendMessage("没有进行中的比赛");
+            return true;
+        } else {
+            sender.sendMessage(sessionData.toString());
+            return true;
+        }
+        
+    }
+    
     
     @SubCommand("结束比赛")
     public boolean exit(CommandSender sender) {
         
         SessionData sessionData = getOrCreateSessionData(sender);
-        if (sessionData.matchSituationDTO == null) {
+        if (sessionData.getMatchSituationDTO() == null) {
             sender.sendMessage("没有进行中的比赛");
             return true;
         } else {
-            sessionData.matchSituationDTO = null;
+            sessionData.setMatchSituationDTO(null);
             sender.sendMessage("结束比赛成功");
             return true;
         }
@@ -209,10 +225,10 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
     }
     private boolean nextQuestion(SessionData sessionData, Contact subject, User senderUser) {
  
-        if (sessionData.matchSituationDTO == null) {
+        if (sessionData.getMatchSituationDTO() == null) {
             subject.sendMessage("没有进行中的比赛");
             return true;
-        } else if (sessionData.matchSituationDTO.getState() == MatchState.WAIT_ANSWER) {
+        } else if (sessionData.getMatchSituationDTO().getState() == MatchState.WAIT_ANSWER) {
             subject.sendMessage("上一个问题还没回答哦~");
             return true;
         }
@@ -220,29 +236,29 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
 
         MatchSituationView newSituationDTO;
         try {
-            newSituationDTO = quizService.nextQustion(sessionData.matchSituationDTO.getId());
+            newSituationDTO = quizService.nextQustion(sessionData.getMatchSituationDTO().getId());
         } catch (QuizgameException e) {
             newSituationDTO = null;
             plugin.getLogger().error("quizService error: ", e);
         }
         if (newSituationDTO != null)  {
-            sessionData.matchSituationDTO = newSituationDTO;
+            sessionData.setMatchSituationDTO(newSituationDTO);
         } else {
             senderUser.sendMessage("出题失败");
             return true;
         }
         
-        QuestionView questionDTO = sessionData.matchSituationDTO.getQuestion();
+        QuestionView questionDTO = sessionData.getMatchSituationDTO().getQuestion();
         if (questionDTO.getResource().getType() == ResourceType.IMAGE) {
             String imageResourceId = questionDTO.getResource().getData();
-            sessionData.resource = plugin.resolveDataFile(questionLoaderService.RESOURCE_ICON_FOLDER + File.separator + imageResourceId);
+            sessionData.setResource(plugin.resolveDataFile(questionLoaderService.RESOURCE_ICON_FOLDER + File.separator + imageResourceId));
         } else {
-            sessionData.resource = null;
+            sessionData.setResource(null);
         }
-        sessionData.createTime = System.currentTimeMillis();
+        sessionData.setCreateTime(System.currentTimeMillis());
         StringBuilder builder = new StringBuilder();
         
-        if (sessionData.matchStrategyType == MatchStrategyType.MAIN) {
+        if (sessionData.getMatchStrategyType() == MatchStrategyType.MAIN) {
             //SwitchQuestionEvent switchQuestionEvent = newSituationDTO.getSwitchQuestionEvent();
             TeamRuntimeView currentTeam = newSituationDTO.getTeamRuntimeInfos().get(newSituationDTO.getCurrentTeamIndex());
             builder.append("当前队伍:").append(currentTeam.getName()).append("\n");
@@ -260,8 +276,8 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
         MessageChain messageChain = new PlainText(builder.toString()).plus(new PlainText(""));
 
         if (subject instanceof FileSupported) {
-            if (sessionData.resource != null) {
-                ExternalResource externalResource = ExternalResource.create(sessionData.resource);
+            if (sessionData.getResource() != null) {
+                ExternalResource externalResource = ExternalResource.create(sessionData.getResource());
                 Image image = subject.uploadImage(externalResource);
                 messageChain = messageChain.plus(image);
             }
@@ -294,24 +310,24 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
 
     private boolean answer(SessionData sessionData, Contact subject, User senderUser, String answer) {    
         
-        if (sessionData.matchSituationDTO != null && sessionData.matchSituationDTO.getState() == MatchState.WAIT_ANSWER) {
+        if (sessionData.getMatchSituationDTO() != null && sessionData.getMatchSituationDTO().getState() == MatchState.WAIT_ANSWER) {
             if (isAnswerChar(answer)) {
-                String correctAnser = TextHelper.intToAnswerText(sessionData.matchSituationDTO.getQuestion().getAnswer());
+                String correctAnser = TextHelper.intToAnswerText(sessionData.getMatchSituationDTO().getQuestion().getAnswer());
                 MatchSituationView newSituationDTO;
                 try {
-                    newSituationDTO = quizService.teamAnswer(sessionData.matchSituationDTO.getId(), answer);
+                    newSituationDTO = quizService.teamAnswer(sessionData.getMatchSituationDTO().getId(), answer);
                 } catch (QuizgameException e) {
                     newSituationDTO = null;
                     plugin.getLogger().error("quizService error: ", e);
                 }
                 if (newSituationDTO != null)  {
-                    sessionData.matchSituationDTO = newSituationDTO;
+                    sessionData.setMatchSituationDTO(newSituationDTO);
                 } else {
                     return false;
                 }
                 
                 
-                AnswerResultEvent answerResultEvent = sessionData.matchSituationDTO.getAnswerResultEvent();
+                AnswerResultEvent answerResultEvent = sessionData.getMatchSituationDTO().getAnswerResultEvent();
                 if (answerResultEvent != null) {
                     
                     MessageChainBuilder messageChainBuilder = new MessageChainBuilder();
@@ -333,8 +349,8 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
                     }
                     
                     
-                    if (sessionData.matchStrategyType == MatchStrategyType.MAIN) {
-                        String text = TextHelper.teamsNormalText(sessionData.matchSituationDTO.getTeamRuntimeInfos());
+                    if (sessionData.getMatchStrategyType() == MatchStrategyType.MAIN) {
+                        String text = TextHelper.teamsNormalText(sessionData.getMatchSituationDTO().getTeamRuntimeInfos());
                         messageChainBuilder.add(new PlainText(text));
                     }
                     
@@ -351,7 +367,7 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
                         stringBuilder.append("\n比赛结束!");
                         messageChainBuilder.add(new PlainText(stringBuilder.toString()));
                         
-                        sessionData.matchSituationDTO = null;
+                        sessionData.setMatchSituationDTO(null);
                     }
                     
                     subject.sendMessage(messageChainBuilder.build());
@@ -366,14 +382,7 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
     
 
 
-    @Data
-    private class SessionData {
-        
-        MatchSituationView matchSituationDTO;
-        File resource;
-        long createTime;
-        MatchStrategyType matchStrategyType;
-    }
+
  
     
     /**
@@ -385,7 +394,7 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
     public void onMessage(@NotNull GroupMessageEvent event) throws Exception { 
         SessionData sessionData = getOrCreateSessionData(event.getGroup().getId());
         String text = event.getMessage().contentToString();
-        if (sessionData.matchSituationDTO != null) {
+        if (sessionData.getMatchSituationDTO() != null) {
             switch (text) {
                 case "A":
                 case "B":
