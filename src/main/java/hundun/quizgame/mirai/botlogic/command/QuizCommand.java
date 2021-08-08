@@ -303,7 +303,7 @@ public class QuizCommand extends CompositeCommand implements ListenerHost {
         
         MessageChain messageChain = new PlainText(builder.toString()).plus(new PlainText(""));
 
-        if (subject instanceof FileSupported) {
+        if (subject.isFileSupported()) {
             if (sessionData.getResource() != null) {
                 ExternalResource externalResource = ExternalResource.create(sessionData.getResource());
                 Image image = subject.uploadImage(externalResource);

@@ -1,6 +1,7 @@
 package hundun.quizgame.mirai.botlogic.command;
 
 import net.mamoe.mirai.console.command.CommandSender;
+import net.mamoe.mirai.console.command.MemberCommandSender;
 import net.mamoe.mirai.contact.Contact;
 import net.mamoe.mirai.message.data.Image;
 import net.mamoe.mirai.message.data.Message;
@@ -42,12 +43,25 @@ public class CommandReplyReceiver {
 
     public Image uploadImage(ExternalResource externalResource) {
         if (commandSender != null) {
-            return null;
+            if (commandSender instanceof MemberCommandSender) {
+                return ((MemberCommandSender)commandSender).getGroup().uploadImage(externalResource);
+            }
         } else if (contact != null) {
             return contact.uploadImage(externalResource);
         }
         return null;
     }
     
+    
+    public boolean isFileSupported() {
+        if (commandSender != null) {
+            if (commandSender instanceof MemberCommandSender) {
+                return true;
+            }
+        } else if (contact != null) {
+            return true;
+        }
+        return false;
+    }
     
 }
