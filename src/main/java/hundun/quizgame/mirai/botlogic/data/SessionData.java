@@ -1,6 +1,7 @@
 package hundun.quizgame.mirai.botlogic.data;
 
 import java.io.File;
+import java.util.Timer;
 
 import hundun.quizgame.core.prototype.match.MatchStrategyType;
 import hundun.quizgame.core.view.match.MatchSituationView;
@@ -13,8 +14,10 @@ import lombok.Data;
  */
 @Data
 public class SessionData {
+    String id;
     MatchSituationView matchSituationDTO;
     File resource;
-    long createTime;
+    //long questionStartTime;
     MatchStrategyType matchStrategyType;
+    Timer questionTimeoutTimer;
 }
